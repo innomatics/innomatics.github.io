@@ -53,6 +53,15 @@ function getScore(dart)
 }
 
 
+function getLabel(dart)
+{
+    if (dart == 'D25') return 'BULL';
+    if (dart == 'T0') return 'MISS';
+    if (isDouble(dart) || isTriple(dart)) return dart;
+    return getScore(dart);
+}
+
+
 // Calc scores from the start, every dart
 function calculateScores()
 {
@@ -120,18 +129,9 @@ function calculateScores()
 function addScoreboardButton(parentRow, buttonType, scoreNumber)
 {
         var btn = document.createElement('div');
-        btn.Title = buttonType + scoreNumber;
+        btn.Title = buttonType + scoreNumber; // dart
         btn.Id = 'scoreboardButton' + btn.Title;
-        
-        if (buttonType == 'S')
-        {
-            btn.innerHTML = scoreNumber;
-        }
-        else
-        {
-            btn.innerHTML = btn.Title;
-        }
-        
+        btn.innerHTML = getLabel(btn.Title);
         btn.addEventListener('click', function(e){scoreboardClick(e);}, false);
         btn.classList.add('scoreboardButton');
         btn.classList.add((buttonType + 'score').toLowerCase());
@@ -152,7 +152,7 @@ function updateScores()
         players[i].HistoryDiv.innerHTML = '';
         for (var d = 0; d < players[i].n; d++)
         {
-            players[i].HistoryDiv.innerHTML += (players[i].Darts[d] + ' ');
+            players[i].HistoryDiv.innerHTML += (getLabel(players[i].Darts[d]) + ' ');
             if (d % 3 == 2)
             {
                 players[i].HistoryDiv.innerHTML += ' - ';
@@ -251,6 +251,10 @@ function drawBoard()
         {
             addScoreboardButton(sbRow, 'T', ns);
         }
+	else
+	{
+            addScoreboardButton(sbRow, 'T', 0);
+	}
         
         if (n < 25)
         {
