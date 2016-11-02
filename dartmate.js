@@ -191,13 +191,13 @@ function drawScores()
     var backButton = document.createElement('div');
     backButton.classList.add('backButton');
     backButton.addEventListener('click', function(e){goBack(e);}, false);
-    backButton.innerHTML = '<<<';
+    backButton.innerHTML = '<< back';
     document.body.appendChild(backButton);
     
     var forwardButton = document.createElement('div');
     forwardButton.classList.add('forwardButton');
     forwardButton.addEventListener('click', function(e){goForward(e);}, false);
-    forwardButton.innerHTML = '>>>';
+    forwardButton.innerHTML = 'forward >>';
     document.body.appendChild(forwardButton);
     
     updateScores();
