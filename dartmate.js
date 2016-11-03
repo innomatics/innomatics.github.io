@@ -136,6 +136,7 @@ function addScoreboardButton(parentRow, buttonType, scoreNumber)
         btn.classList.add('scoreboardButton');
         btn.classList.add((buttonType + 'score').toLowerCase());
         parentRow.appendChild(btn);
+	return btn;
 }
 
 function updateScores()
@@ -233,37 +234,43 @@ function drawBoard()
     var scoreboard = document.createElement('div');
     scoreboard.classList.add('scoreboard');
     document.body.appendChild(scoreboard);
-    
+    var sbSpan = document.createElement('div');
+    sbSpan.classList.add('scoreboardSpan');
+    scoreboard.appendChild(sbSpan);
     while(n > 0)
     {
         var ns = n.toString();
+
+	if (n == 10)
+	{
+    sbSpan = document.createElement('div');
+    sbSpan.classList.add('scoreboardSpan');
+    scoreboard.appendChild(sbSpan);
+	}
         
-        // Create a row
-        var sbRow = document.createElement('div');
-        sbRow.classList.add('scoreboardRow');
-        sbRow.Id = 'sbRow' + ns;
-        scoreboard.appendChild(sbRow);
-        
-        addScoreboardButton(sbRow, 'D', ns);
-        addScoreboardButton(sbRow, 'S', ns);
+        var dbl = addScoreboardButton(sbSpan, 'D', ns);
+        var sng = addScoreboardButton(sbSpan, 'S', ns);
+
         
         if (n < 25)
         {
-            addScoreboardButton(sbRow, 'T', ns);
+            addScoreboardButton(sbSpan, 'T', ns);
+            n--;
         }
 	else
 	{
-            addScoreboardButton(sbRow, 'T', 0);
+            dbl.classList.add('bull');
+            dbl.classList.remove('dscore');
+            sng.classList.add('greenbull');
+            sng.classList.remove('sscore');
+            var miss = addScoreboardButton(sbSpan, 'T', 0);
+            miss.classList.add('miss');
+            miss.classList.remove('tscore');
+
+
+            n = 20;
 	}
         
-        if (n < 25)
-        {
-            n--;
-        }
-        else
-        {
-            n = 20;
-        }
     }
     
     scoresRow = document.createElement('div');
