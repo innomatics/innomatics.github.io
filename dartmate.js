@@ -132,7 +132,7 @@ function addScoreboardButton(parentRow, buttonType, scoreNumber)
         var btn = document.createElement('div');
         btn.Title = buttonType + scoreNumber; // dart
         btn.Id = 'scoreboardButton' + btn.Title;
-        btn.innerHTML = getLabel(btn.Title);
+        btn.innerHTML = '<span>' + getLabel(btn.Title) + '</span>';
         btn.addEventListener('click', function(e){scoreboardClick(e);}, false);
         btn.classList.add('scoreboardButton');
         btn.classList.add((buttonType + 'score').toLowerCase());

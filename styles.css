@@ -9,6 +9,11 @@ body
 	font-size: 32pt;
 }
 
+span
+{
+        vertical-align: middle;
+}
+
 .historySection
 {
 	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -29,11 +34,6 @@ body
 
 .scoreboardButton
 {
-	color: white;
-	max-width: 15vw; 
-	min-width: 15vw; 
-	min-height: 7vh; 
-	min-height: 7vh; 
 }
 .bull, .dscore:nth-child(even), .tscore:nth-child(even)
 {
@@ -58,15 +58,19 @@ body
 
 .scoreboardButton
 {
+	color: white;
+	max-width: 15vw; 
+	min-width: 15vw; 
+	min-height: 7vh; 
 	display: inline-block;
-	text-align: center;
 	vertical-align: middle;
 	border-color: silver;
 	border-width: 0.5pt;
 	border-style: solid;
 	border-radius: 1.5vh;
+	text-align: center;
 	margin: 0px 0px 0px 0px;
-	padding: 0px 0px 0px 0px;
+	padding: 0 0 0 0;
 	height: inherit;
 }
 
