@@ -107,6 +107,7 @@ function calculateScores()
             {
                 
                 alert(players[currentPlayer].Name + ' WINS!');
+		return;
             }
         }
         
