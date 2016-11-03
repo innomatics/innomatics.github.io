@@ -244,9 +244,9 @@ function drawBoard()
 
 	if (n == 10)
 	{
-    sbSpan = document.createElement('div');
-    sbSpan.classList.add('scoreboardSpan');
-    scoreboard.appendChild(sbSpan);
+            sbSpan = document.createElement('div');
+            sbSpan.classList.add('scoreboardSpan');
+            scoreboard.appendChild(sbSpan);
 	}
         
         var dbl = addScoreboardButton(sbSpan, 'D', ns);
@@ -289,6 +289,10 @@ function updateScore(player, score)
 function scoreboardClick(object)
 {
     var dart = object.target.Title;
+    if (dart == undefined)
+    {
+        dart = object.target.parentElement.Title
+    }
     darts[currentDart] = dart;
     currentDart ++;
     calculateScores();
