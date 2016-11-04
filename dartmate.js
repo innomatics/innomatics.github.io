@@ -302,4 +302,7 @@ function scoreboardClick(object)
 
 (function(){
     window.onload = drawBoard;
+    window.onbeforeunload = function() {
+      return "Game will be lost if you leave or refresh the page, are you sure?";
+      };
 })();
