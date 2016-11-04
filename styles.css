@@ -22,6 +22,7 @@ span
 {
 	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 	font-size: 24pt;
+	max-height: 999999px; /* Prevent Android Chrome font boosting */
 }
 .scoreboard
 {
@@ -51,12 +52,12 @@ span
 
 .miss, .sscore:nth-child(odd), .sscore:nth-child(odd)
 {
-	background: linear-gradient(to bottom, rgb(236, 201, 169), rgb(109, 65, 24));
+	background: linear-gradient(to bottom, rgb(100, 100, 100), rgb(0, 0, 0));
 }
 
 .sscore:nth-child(even), .sscore:nth-child(even)
 {
-	background: linear-gradient(to bottom, rgb(100, 100, 100), rgb(0, 0, 0));
+	background: linear-gradient(to bottom, rgb(236, 201, 169), rgb(109, 65, 24));
 }
 
 .scoreboardButton
