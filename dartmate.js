@@ -183,7 +183,7 @@ function addOptionButton(parentRow)
   var btn = document.createElement('div');
   btn.Title = 'Options';
   btn.innerHTML = 'Options';
-  btn.addEventListener('click', function(e){optionButtonClick(e);}, false);
+  //btn.addEventListener('click', function(e){optionButtonClick(e);}, false);
   btn.classList.add('optionButton');
   parentRow.appendChild(btn);
 return btn;
