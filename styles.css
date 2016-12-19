@@ -1,11 +1,24 @@
-.infoSection
+e.hide
 {
 	display: none;
 }
 
+.optionSection
+{
+
+}
+
+.optionButton
+{
+	width: 100%;
+	padding-bottom: 40pt;
+	text-align: right;
+	display: inline-block;
+	float: right;
+}
+
 .throwScore
 {
-	max-width: 99vw;
   visibility: hidden;
   opacity: 0;
   z-index: -1; /*hide it in the back of the page*/
@@ -13,14 +26,15 @@
 
 .throwScoreShow
 {
-	left: 25vw;
+	left: 0;
 	top: 50vw;
 	font-size: 200pt;
 	text-align: center;
-	width: 50vw;
-	color: white;
+	min-width: 99vw;
+	max-width: 99vw;
+ 	color: white;
 	position: absolute;
-  -webkit-animation: pop-swirl 2s ease forwards; /*trigger the keyframe*/
+  -webkit-animation: pop-swirl 3s ease forwards; /*trigger the keyframe*/
   visibility: visible;
   z-index: 200;
   opacity: 1;
@@ -123,7 +137,7 @@ span
 {
 	margin-top: 15pt;
 	margin-right: 50px;
-	font-size: 35pt;
+	font-size: 30pt;
 	display: inline-block;
 }
 
@@ -131,7 +145,7 @@ span
 {
 	margin-top: 15pt;
 	display: inline-block;
-	font-size: 35pt;
+	font-size: 30pt;
 	float: right;
 }
 
