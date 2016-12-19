@@ -7,26 +7,27 @@ var currentPlayer = 0;
 var startScore = 301;
 var players = [
     {
-        Name: "Player 1", 
-        Score: startScore, 
-        ScoreDiv: {}, 
-        HistoryDiv: {}, 
-        Darts: [], 
+        Name: "Player 1",
+        Score: startScore,
+        ScoreDiv: {},
+        HistoryDiv: {},
+        Darts: [],
         n: 0
-        
-    }, 
+
+    },
     {
-        Name: "Player 2", 
-        Score: startScore, 
-        ScoreDiv: {}, 
-        HistoryDiv: {}, 
-        Darts: [], 
+        Name: "Player 2",
+        Score: startScore,
+        ScoreDiv: {},
+        HistoryDiv: {},
+        Darts: [],
         n: 0
-    
+
     }
 ];
 var darts = [];
 var infoSection;
+var throwScoreSection;
 
 function isDouble(dart)
 {
@@ -77,26 +78,26 @@ function calculateScores()
         players[p].Darts = [];
         players[p].n = 0;
     }
-    
+
     for (var t = 0; t < currentDart; t++)
     {
         dartNum++;
-        
+
         // if it's a players first dart, or the last player busted
-        // then reset the throw score 
+        // then reset the throw score
         if (dartNum == 1 || busted)
         {
             throwScore = 0;
             throwStartScore = players[currentPlayer].Score;
             throwStartN = players[currentPlayer].n;
         }
-        
+
         players[currentPlayer].Score -= getScore(darts[t]);
         players[currentPlayer].Darts[players[currentPlayer].n] = darts[t];
         players[currentPlayer].n++;
-        
+
         busted = (players[currentPlayer].Score < 2);
-        
+
         if (players[currentPlayer].Score == 0)
         {
             if (!isDouble(darts[t]))
@@ -105,12 +106,12 @@ function calculateScores()
             }
             else
             {
-                
+
                 alert(players[currentPlayer].Name + ' WINS!');
 		return;
             }
         }
-        
+
         if (busted)
         {
             // Hard luck, reset back to score at start and move pointer back
@@ -121,7 +122,7 @@ function calculateScores()
         if (dartNum == numDarts || busted)
         {
             currentPlayer = (currentPlayer + 1) % numPlayers;
-            dartNum = 0; 
+            dartNum = 0;
         }
     }
 }
@@ -145,30 +146,54 @@ function updateScores()
     for (var i = 0; i < numPlayers; i++)
     {
         players[i].ScoreDiv.innerHTML = players[i].Name + ': ' + players[i].Score;
-        
+
         if (i == currentPlayer)
         {
             players[i].ScoreDiv.innerHTML = '*' + players[i].ScoreDiv.innerHTML;
         }
-        
-        players[i].HistoryDiv.innerHTML = '';
+
+        players[i].HistoryDiv.innerHTML = players[i].n == 0 ? '-' : '';
         for (var d = 0; d < players[i].n; d++)
         {
-            players[i].HistoryDiv.innerHTML += (getLabel(players[i].Darts[d]) + ' ');
-            if (d % 3 == 2)
+            if ((players[i].n - d) <= 12) // SHow last 12 darts only
             {
-                players[i].HistoryDiv.innerHTML += ' - ';
+              players[i].HistoryDiv.innerHTML += (getLabel(players[i].Darts[d]) + ' ');
+              if (d % 3 == 2)
+              {
+                  players[i].HistoryDiv.innerHTML += ' - ';
+              }
             }
         }
-        
+
     }
     infoSection.innerHTML = 'Dart: ' + currentDart + ' ';
     for (var d = 0; d < currentDart; d++ )
     {
-        infoSection.innerHTML += (darts[d] + ' ');    
+        infoSection.innerHTML += (darts[d] + ' ');
     }
-    
+
 }
+
+function drawThrowScore()
+{
+	throwScoreSection = document.createElement('div');
+  document.body.appendChild(throwScoreSection);
+  hideThrowScore();
+}
+
+function displayThrowScore(score)
+{
+  throwScoreSection.innerHTML = score;
+  throwScoreSection.className ='';
+  throwScoreSection.classList.add('throwScoreShow');
+}
+
+function hideThrowScore()
+{
+  throwScoreSection.className ='';
+  throwScoreSection.classList.add('throwScore');
+}
+
 
 function drawScores()
 {
@@ -182,6 +207,7 @@ function drawScores()
 
         var historySection = document.createElement('div');
         historySection.classList.add('historySection');
+        historySection.innerHTML = '-';
         document.body.appendChild(historySection);
         players[i].HistoryDiv = historySection;
     }
@@ -189,21 +215,21 @@ function drawScores()
     infoSection.classList.add('infoSection');
     document.body.appendChild(infoSection);
     updateScores();
-    
+
     var backButton = document.createElement('div');
     backButton.classList.add('backButton');
     backButton.addEventListener('click', function(e){goBack(e);}, false);
     backButton.innerHTML = '<< back';
     document.body.appendChild(backButton);
-    
+
     var forwardButton = document.createElement('div');
     forwardButton.classList.add('forwardButton');
     forwardButton.addEventListener('click', function(e){goForward(e);}, false);
     forwardButton.innerHTML = 'forward >>';
     document.body.appendChild(forwardButton);
-    
+
     updateScores();
-    
+
 }
 
 function goBack()
@@ -248,11 +274,11 @@ function drawBoard()
             sbSpan.classList.add('scoreboardSpan');
             scoreboard.appendChild(sbSpan);
 	}
-        
+
         var dbl = addScoreboardButton(sbSpan, 'D', ns);
         var sng = addScoreboardButton(sbSpan, 'S', ns);
 
-        
+
         if (n < 25)
         {
             addScoreboardButton(sbSpan, 'T', ns);
@@ -271,13 +297,14 @@ function drawBoard()
 
             n = 20;
 	}
-        
+
     }
-    
+
     scoresRow = document.createElement('div');
     scoresRow.Id = 'scoresRow';
     document.body.appendChild(scoresRow);
     drawScores();
+    drawThrowScore();
 }
 
 function updateScore(player, score)
@@ -297,7 +324,18 @@ function scoreboardClick(object)
     currentDart ++;
     calculateScores();
     updateScores();
-    
+
+    if (currentDart > 0 && currentDart % 3 == 0)
+    {
+      var throwScore = getScore(darts[currentDart -1])
+              + getScore(darts[currentDart - 2])
+              + getScore(darts[currentDart - 3]);
+      displayThrowScore(throwScore);
+    }
+    else
+    {
+      hideThrowScore();
+    }
 }
 
 (function(){
