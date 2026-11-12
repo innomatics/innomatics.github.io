@@ -582,7 +582,8 @@ function confettiEmitter(perSecond = 140) {
 function dartButton(d, color) {
   return el('button', {
     type: 'button',
-    class: `dart ${color}`,
+    // BULL, 25 and MISS are drawn as round signs (see .bullseye / .outer-bull / .miss-sign in the CSS)
+    class: `dart ${color}` + ({ D25: ' bullseye', S25: ' outer-bull', T0: ' miss-sign' }[d] || ''),
     title: d,
     textContent: getLabel(d),
     onclick: () => throwDart(d)

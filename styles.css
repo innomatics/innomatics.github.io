@@ -179,6 +179,63 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .nav:disabled { opacity: 0.35; cursor: default; }
 
+/* ===== BULL and 25: round targets in every layout =====
+ * The button keeps its whole rectangle as the tap area; the circle is a radial gradient
+ * sized to the shorter side ("closest-side"), so it stays round whatever the cell shape.
+ * 25 is a green ring around a black centre a third of its diameter.
+ */
+.dart.bullseye,
+.dart.outer-bull {
+  border: none;
+  border-radius: 0;
+}
+.dart.bullseye {
+  background: radial-gradient(circle closest-side,
+    #ec4a40 0%, #b8231d 86%,
+    var(--wire) 88% 95%,
+    transparent 97%);
+}
+.dart.outer-bull {
+  background: radial-gradient(circle closest-side,
+    #111 0% 31%,
+    var(--wire) 32.5% 35%,
+    #34ad60 36.5%, #1d6b39 86%,
+    var(--wire) 88% 95%,
+    transparent 97%);
+}
+.dart.bullseye:active, .dart.outer-bull:active { transform: scale(0.92); }
+/* MISS: a light grey "prohibited" sign — ring plus diagonal sash, no border.
+ * Container query units (cqmin) size it to the button's shorter side so it stays round. */
+.dart.miss-sign {
+  position: relative;
+  isolation: isolate;
+  container-type: size;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: #fff;
+  text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 6px #000;
+}
+.dart.miss-sign::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  box-sizing: border-box; /* the global * rule doesn't reach pseudo-elements */
+  width: 95cqmin;         /* same 95% as the BULL / 25 circles */
+  height: 95cqmin;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 11cqmin solid #c4c4c4;
+  background: linear-gradient(45deg, transparent calc(50% - 5.5cqmin), #c4c4c4 0 calc(50% + 5.5cqmin), transparent 0);
+}
+.dart.miss-sign:active { transform: scale(0.92); }
+
+/* keep "BULL" inside its circle */
+.dart.bullseye { font-size: clamp(11px, 3.4vw, 20px); }
+#board.simple .dart.bullseye { font-size: clamp(15px, 5vw, 26px); }
+
 /* ===== Simple layout: number pad with Double / Triple modifiers ===== */
 #board.simple {
   grid-template-columns: minmax(0, 1fr);
