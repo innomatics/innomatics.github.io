@@ -149,7 +149,7 @@ function replay() {
     const d = darts[i];
 
     if (!turn) {
-      turn = { darts: [], startScore: p.score, startOpened: p.opened, bust: false, total: 0, done: false };
+      turn = { player: current, darts: [], startScore: p.score, startOpened: p.opened, bust: false, total: 0, done: false };
       p.turns.push(turn);
     }
     turn.darts.push(d);
@@ -191,9 +191,16 @@ function throwDart(d) {
   darts.push(d);
   cursor++;
 
+  stopCelebration();
+
   const g = render();
-  if (g.winner !== null) showWinner(g);
-  else if (!g.turn && g.lastTurn) showPopup(g.lastTurn.bust ? 'BUST' : g.lastTurn.total, g.lastTurn.bust);
+  const won = g.winner !== null;
+  const finished = !g.turn ? g.lastTurn : null; // the turn this dart completed, if any
+  const kind = finished ? pickCelebration(finished, won) : null;
+
+  if (kind) celebrate(kind, finished, g.players[finished.player], won ? () => showWinner(g) : null);
+  else if (won) showWinner(g);
+  else if (finished) showPopup(finished.bust ? 'BUST' : finished.total, finished.bust);
   else hidePopup();
 }
 
@@ -202,6 +209,7 @@ function undo() {
   cursor--;
   ui.winner.hidden = true;
   hidePopup();
+  stopCelebration();
   render();
 }
 
@@ -209,6 +217,7 @@ function redo() {
   if (cursor >= darts.length) return;
   cursor++;
   hidePopup();
+  stopCelebration();
   const g = render();
   if (g.winner !== null) showWinner(g);
 }
@@ -218,6 +227,7 @@ function newGame() {
   cursor = 0;
   ui.winner.hidden = true;
   hidePopup();
+  stopCelebration();
   render();
 }
 
@@ -285,6 +295,285 @@ function showWinner(g) {
   ui.winner.hidden = false;
 }
 
+/* ===== Celebrations =====
+ * In order of magnitude: win with 170, Shanghai finish (T20 20 D20), win with 100+, 180,
+ * any other win (simple confetti), 100+.
+ * Each has its own effect; they sit above everything but never block taps, and
+ * the next dart (or undo, options, new game) cancels one still playing.
+ */
+const CELEBRATIONS = {
+  bigFish: { duration: 5500, vibrate: [80, 60, 80, 60, 300], run: celebrateBigFish },
+  shanghai: { duration: 5000, vibrate: [60, 40, 60, 40, 60, 40, 250], run: celebrateShanghai },
+  tonOut:  { duration: 4500, vibrate: [60, 50, 200], run: celebrateTonOut },
+  max:     { duration: 3800, vibrate: [100, 60, 100, 60, 100], run: celebrate180 },
+  win:     { duration: 3200, vibrate: [60, 40, 120], run: celebrateWin },
+  ton:     { duration: 2400, vibrate: [60], run: celebrateTon }
+};
+
+function pickCelebration(turn, won) {
+  if (turn.bust) return null;
+  if (won) {
+    if (turn.total === 170) return 'bigFish';
+    if (isShanghai(turn)) return 'shanghai';
+    return turn.total >= 100 ? 'tonOut' : 'win';
+  }
+  if (turn.total === 180) return 'max';
+  if (turn.total >= 100) return 'ton';
+  return null;
+}
+
+// Shanghai finish: single, treble and double 20 in one visit, ending on the D20 (120).
+function isShanghai(turn) {
+  const [a, b, c] = turn.darts;
+  return turn.darts.length === 3 && c === 'D20' &&
+    ((a === 'T20' && b === 'S20') || (a === 'S20' && b === 'T20'));
+}
+
+function reducedMotion() {
+  return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+let celTimer = null;
+let celDone = null; // runs when a celebration plays to the end (e.g. show the winner screen)
+
+function buildCelebration() {
+  ui.cel = getOrCreate('celebration', 'div');
+  ui.cel.setAttribute('aria-live', 'polite');
+  ui.celCanvas = el('canvas', { class: 'cel-canvas' });
+  ui.celStage = el('div', { class: 'cel-stage' });
+  ui.cel.append(ui.celCanvas, ui.celStage);
+}
+
+function celebrate(kind, turn, player, onDone) {
+  stopCelebration();
+  void ui.cel.offsetWidth; // flush styles so the fade animations restart from the beginning
+  hidePopup();
+  const c = CELEBRATIONS[kind];
+  celDone = onDone;
+  ui.cel.style.setProperty('--dur', `${c.duration}ms`);
+  ui.cel.className = `show cel-${kind}`;
+  c.run(turn, player, c.duration);
+  try { if (navigator.vibrate) navigator.vibrate(c.vibrate); } catch (e) { /* not supported */ }
+  celTimer = setTimeout(() => {
+    const done = celDone;
+    stopCelebration();
+    if (done) done();
+  }, c.duration);
+}
+
+function stopCelebration() {
+  if (!ui.cel) return;
+  clearTimeout(celTimer);
+  celTimer = null;
+  celDone = null;
+  fxStop();
+  ui.cel.className = '';
+  ui.celStage.replaceChildren();
+  document.body.classList.remove('shake');
+}
+
+function text(cls, content, style) {
+  const e = el('div', { class: cls, textContent: content });
+  if (style) e.style.cssText = style;
+  return e;
+}
+
+// 1. Win with 170: fireworks, shimmering gold title, heartbeat 170, screen shake.
+function celebrateBigFish(turn, player, duration) {
+  ui.celStage.append(
+    text('cel-title', 'The Big Fish!'),
+    text('cel-number', '170'),
+    text('cel-sub', `${player.name} checks out ${turn.darts.map(getLabel).join(' ')}`));
+  if (!reducedMotion()) {
+    document.body.classList.add('shake');
+    fxStart(fireworksEmitter(), duration);
+  }
+}
+
+// 2. Shanghai finish: the three darts fly in from different edges and lock into a row
+//    while dartboard rings ripple out behind them.
+function celebrateShanghai(turn, player) {
+  const rings = el('div', { class: 'cel-rings' });
+  for (let i = 0; i < 4; i++) {
+    rings.append(el('span', { class: i % 2 ? 'green' : 'red', style: `animation-delay: ${0.6 + i * 0.4}s` }));
+  }
+  const origins = [['-110vw', '-40vh', '-40deg'], ['110vw', '-40vh', '40deg'], ['0', '90vh', '0deg']];
+  const flights = el('div', { class: 'cel-flights' });
+  turn.darts.forEach((d, i) => {
+    const [fx, fy, fr] = origins[i];
+    flights.append(el('span', {
+      class: `cel-flight ${dartColor(d)}`,
+      textContent: getLabel(d),
+      style: `--fx: ${fx}; --fy: ${fy}; --fr: ${fr}; animation-delay: ${i * 0.22}s`
+    }));
+  });
+  ui.celStage.append(
+    rings,
+    flights,
+    text('cel-title', 'Shanghai!'),
+    text('cel-number', '120'),
+    text('cel-sub', `${player.name} checks out ${turn.darts.map(getLabel).join(' ')}`));
+}
+
+// 3. Win with 100+: confetti in board colours, bouncing score.
+function celebrateTonOut(turn, player, duration) {
+  ui.celStage.append(
+    text('cel-title', 'Ton-plus finish!'),
+    text('cel-number', turn.total),
+    text('cel-sub', `${player.name} checks out ${turn.darts.map(getLabel).join(' ')}`));
+  if (!reducedMotion()) fxStart(confettiEmitter(), duration);
+}
+
+// 4. 180: spinning sunburst, strobe flash, neon 180 zooming in.
+function celebrate180(turn, player) {
+  ui.celStage.append(
+    el('div', { class: 'cel-rays' }),
+    el('div', { class: 'cel-flash' }),
+    text('cel-number', '180'),
+    text('cel-title', 'One hundred and eighty!'),
+    text('cel-sub', player.name));
+}
+
+// 5. 100+: score swooshes in with a light sweep across it.
+function celebrateTon(turn, player) {
+  ui.celStage.append(
+    text('cel-number', turn.total),
+    text('cel-title', turn.total >= 140 ? 'Ton-forty!' : 'Ton!'),
+    text('cel-sub', player.name));
+}
+
+// Any other win: a light shower of confetti and a simple "Game shot!".
+function celebrateWin(turn, player, duration) {
+  ui.celStage.append(
+    text('cel-title', 'Game shot!'),
+    text('cel-sub', `${player.name} checks out ${turn.darts.map(getLabel).join(' ')}`));
+  if (!reducedMotion()) fxStart(confettiEmitter(45), duration);
+}
+
+/* ----- Canvas particle effects (fireworks, confetti) ----- */
+const FX_COLORS = ['#e8382f', '#2fa35a', '#f6e7c8', '#f5c542', '#ffffff'];
+let fxParts = [];
+let fxRaf = 0;
+
+function fxStart(emit, duration) {
+  const cv = ui.celCanvas;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = window.innerWidth, h = window.innerHeight;
+  cv.width = w * dpr;
+  cv.height = h * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  fxParts = [];
+  const stopEmitting = performance.now() + duration - 1200; // let the last particles fade out
+  let last = performance.now();
+
+  const frame = now => {
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    if (now < stopEmitting) emit(dt, w, h);
+
+    ctx.clearRect(0, 0, w, h);
+    const parts = fxParts;
+    fxParts = []; // anything spawned this frame (e.g. an explosion) lands here
+    const alive = [];
+    for (const p of parts) {
+      p.life -= dt;
+      if (p.life <= 0) { if (p.onDeath) p.onDeath(p); continue; }
+      const drag = Math.pow(p.drag, dt * 60);
+      p.vx *= drag;
+      p.vy = p.vy * drag + p.g * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.update) p.update(p, dt);
+      p.draw(ctx, p);
+      alive.push(p);
+    }
+    fxParts = alive.concat(fxParts);
+    fxRaf = fxParts.length || now < stopEmitting ? requestAnimationFrame(frame) : 0;
+  };
+  fxRaf = requestAnimationFrame(frame);
+}
+
+function fxStop() {
+  cancelAnimationFrame(fxRaf);
+  fxRaf = 0;
+  fxParts = [];
+  const cv = ui.celCanvas;
+  if (cv) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+}
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = list => list[Math.floor(Math.random() * list.length)];
+
+function drawSpark(ctx, p) {
+  ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+  ctx.fillStyle = p.color;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function explode(x, y) {
+  const color = pick(FX_COLORS);
+  const n = 70;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + rand(-0.05, 0.05);
+    const speed = rand(90, 240);
+    const life = rand(1.0, 1.6);
+    fxParts.push({
+      x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, g: 110, drag: 0.965,
+      life, maxLife: life, size: rand(1.5, 2.8), color: Math.random() < 0.2 ? '#fff' : color, draw: drawSpark
+    });
+  }
+}
+
+function fireworksEmitter() {
+  let wait = 0;
+  return (dt, w, h) => {
+    wait -= dt;
+    if (wait > 0) return;
+    wait = rand(0.25, 0.55);
+    const g = 380;
+    const targetY = rand(h * 0.12, h * 0.45);
+    const vy = -Math.sqrt(2 * g * (h - targetY)); // just reaches targetY
+    const life = -vy / g;
+    fxParts.push({
+      x: rand(w * 0.15, w * 0.85), y: h, vx: rand(-30, 30), vy, g, drag: 1,
+      life, maxLife: life, size: 2.5, color: '#fff6c8',
+      draw: (ctx, p) => { ctx.fillStyle = p.color; ctx.fillRect(p.x - 1.5, p.y, 3, 10); },
+      onDeath: p => explode(p.x, p.y)
+    });
+  };
+}
+
+function confettiEmitter(perSecond = 140) {
+  let carry = 0;
+  return (dt, w) => {
+    carry += dt * perSecond;
+    for (; carry >= 1; carry--) {
+      const life = rand(3, 4.5);
+      fxParts.push({
+        x: rand(0, w), y: rand(-40, -10), vx: rand(-40, 40), vy: rand(60, 160), g: 30, drag: 0.99,
+        life, maxLife: life, color: pick(FX_COLORS), w: rand(6, 11), h: rand(3, 6),
+        rot: rand(0, Math.PI), spin: rand(-8, 8), phase: rand(0, 6),
+        update: (p, step) => { p.rot += p.spin * step; p.phase += step * 3; p.x += Math.sin(p.phase) * 0.8; },
+        draw: (ctx, p) => {
+                  ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.scale(1, Math.cos(p.phase)); // flutter
+          ctx.globalAlpha = Math.min(1, p.life);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        }
+      });
+    }
+  };
+}
+
 /* ===== Building the UI ===== */
 function dartButton(d, color) {
   return el('button', {
@@ -296,13 +585,19 @@ function dartButton(d, color) {
   });
 }
 
+// Board colour of a dart, as used on a real dartboard.
+function dartColor(d) {
+  if (d === 'D25') return 'red';
+  if (d === 'S25') return 'green';
+  if (d === 'T0') return 'miss';
+  const dark = BOARD_ORDER.indexOf(parseDart(d).num) % 2 === 0;
+  if (d[0] === 'S') return dark ? 'black' : 'cream';
+  return dark ? 'red' : 'green';
+}
+
 function numberRow(n) {
-  const dark = BOARD_ORDER.indexOf(n) % 2 === 0;
-  const ring = dark ? 'red' : 'green';
   return el('div', { class: 'row' },
-    dartButton(`D${n}`, ring),
-    dartButton(`S${n}`, dark ? 'black' : 'cream'),
-    dartButton(`T${n}`, ring));
+    ...['D', 'S', 'T'].map(m => dartButton(`${m}${n}`, dartColor(`${m}${n}`))));
 }
 
 function buildBoard() {
@@ -403,11 +698,14 @@ function openOptions() {
   draft = { ...settings, names: [...settings.names] };
   syncOptions();
   hidePopup();
+  stopCelebration();
   ui.options.hidden = false;
 }
 
 function closeOptions() {
   ui.options.hidden = true;
+  const g = replay();
+  if (g.winner !== null) showWinner(g); // e.g. options opened mid win-celebration
 }
 
 function applyOptions() {
@@ -463,7 +761,8 @@ function init() {
   buildBoard();
   buildWinner();
   buildOptions();
-  document.body.append(ui.scores, ui.board, ui.popup, ui.winner, ui.options);
+  buildCelebration();
+  document.body.append(ui.scores, ui.board, ui.popup, ui.winner, ui.options, ui.cel);
 
   window.addEventListener('beforeunload', e => {
     if (cursor > 0 && replay().winner === null) {
