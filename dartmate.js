@@ -24,6 +24,7 @@ let draft = null;  // copy of settings being edited on the options screen
 let modifier = null; // simple layout: 'D' or 'T' while a modifier is selected
 let darts = [];    // every dart entered, e.g. 'T20', 'S5', 'D25' (bull), 'T0' (miss)
 let cursor = 0;    // how many of those darts are applied (undo/redo moves this)
+let startPlayer = 0; // who throws first this game; moves on one player each new game
 const ui = {};
 
 /* ===== DOM helpers ===== */
@@ -142,7 +143,7 @@ function replay() {
     players.push({ name: settings.names[i], score: settings.target, opened: !settings.doubleIn, turns: [] });
   }
 
-  let current = 0;
+  let current = startPlayer % players.length;
   let turn = null;      // turn in progress
   let lastTurn = null;  // most recently completed turn
   let winner = null;
@@ -226,6 +227,10 @@ function redo() {
 }
 
 function newGame() {
+  // The next player starts each new game (2 players: alternate). A game nobody has
+  // thrown in yet doesn't count, so setting up options first doesn't skip anyone.
+  if (darts.length > 0) startPlayer = (startPlayer + 1) % settings.numPlayers;
+  else startPlayer %= settings.numPlayers;
   darts = [];
   cursor = 0;
   ui.winner.hidden = true;
