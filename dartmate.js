@@ -440,6 +440,18 @@ function saveSettings() {
 }
 
 /* ===== Start up ===== */
+// Without width=device-width a phone lays the page out ~980px wide and, because
+// zooming out is blocked, only shows a corner of the board. Fix the viewport here
+// so the page sizes itself to the phone's screen whatever the HTML says.
+function setViewport() {
+  let meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) {
+    meta = el('meta', { name: 'viewport' });
+    document.head.append(meta);
+  }
+  meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+}
+
 function init() {
   loadSettings();
 
@@ -463,5 +475,6 @@ function init() {
   render();
 }
 
+setViewport(); // straight away, before the first layout if possible
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
