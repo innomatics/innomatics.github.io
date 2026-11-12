@@ -220,6 +220,44 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 
+/* ===== Simple Round layout: numbers as a dartboard ring ===== */
+.donut-wrap {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.donut {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+}
+.seg-wrap { cursor: pointer; outline: none; }
+.seg {
+  stroke: var(--wire);
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+  transition: fill 0.12s ease;
+}
+.seg.black { fill: #1c1c1c; }
+.seg.cream { fill: #ecd9b3; }
+.seg.red   { fill: #d3302a; }
+.seg.green { fill: #26914e; }
+
+.seg-label {
+  fill: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.seg.cream + .seg-label { fill: #1a1a1a; }
+.donut.modded .seg-label { font-size: 12px; } /* room for "T20" */
+
+/* press / keyboard feedback: gold outline, drawn on top */
+.seg-wrap:active .seg,
+.seg-wrap:focus-visible .seg { stroke: var(--accent); stroke-width: 2.5; }
+
 /* ===== Throw score popup ===== */
 #throwScore {
   position: fixed;

@@ -5,6 +5,7 @@ const TARGETS = [301, 501];
 const MAX_PLAYERS = 4;
 const DARTS_PER_TURN = 3;
 const STORAGE_KEY = 'dartmate.settings';
+const LAYOUTS = [['simple', 'Simple'], ['round', 'Simple Round'], ['full', 'Full']];
 
 // Clockwise order round a real board, starting at the top (20). Even indexes are
 // the dark sectors (black single, red double/treble), odd indexes the light ones
@@ -16,7 +17,7 @@ const settings = {
   target: 301,
   numPlayers: 2,
   doubleIn: false,
-  simpleLayout: true,  // number pad with Double/Triple modifiers instead of D/S/T rows
+  layout: 'simple',    // 'simple' (number pad), 'round' (dartboard ring) or 'full' (D/S/T rows)
   names: ['Player 1', 'Player 2', 'Player 3', 'Player 4']
 };
 let draft = null;  // copy of settings being edited on the options screen
@@ -612,25 +613,20 @@ function navRow() {
 function buildBoard() {
   ui.board.replaceChildren();
   ui.numBtns = null;
-  ui.board.className = settings.simpleLayout ? 'simple' : 'classic';
-  if (settings.simpleLayout) buildSimpleBoard();
-  else buildClassicBoard();
+  ui.segs = null;
+  ui.board.className = { simple: 'simple', round: 'simple round', full: 'classic' }[settings.layout];
+  if (settings.layout === 'full') buildClassicBoard();
+  else buildSimpleBoard(settings.layout === 'round');
 }
 
-// Simple layout: BULL / 25 / MISS, Double and Triple modifiers, then single numbers 1-20.
-function buildSimpleBoard() {
+// Simple layouts: BULL / 25 / MISS, Double and Triple modifiers, then single numbers 1-20,
+// either as a number pad or (round) as the ring of a dartboard.
+function buildSimpleBoard(round) {
   ui.modBtns = {
     D: button('Double', 'mod', () => setModifier(modifier === 'D' ? null : 'D')),
     T: button('Triple', 'mod', () => setModifier(modifier === 'T' ? null : 'T'))
   };
-  ui.numBtns = [];
-  const pad = el('div', { class: 'numpad' });
-  for (let n = 1; n <= 20; n++) {
-    const b = el('button', { type: 'button', class: 'dart', onclick: () => throwDart(`${modifier || 'S'}${n}`) });
-    b.dataset.num = n;
-    ui.numBtns.push(b);
-    pad.append(b);
-  }
+  const pad = round ? buildDonut() : buildNumpad();
   ui.board.append(
     el('div', { class: 'row' }, dartButton('D25', 'red'), dartButton('S25', 'green'), dartButton('T0', 'miss')),
     el('div', { class: 'row mods' }, ui.modBtns.D, ui.modBtns.T),
@@ -639,16 +635,71 @@ function buildSimpleBoard() {
   setModifier(null);
 }
 
-// Simple layout: the number buttons show and score the selected modifier, in its board colour.
+function buildNumpad() {
+  ui.numBtns = [];
+  const pad = el('div', { class: 'numpad' });
+  for (let n = 1; n <= 20; n++) {
+    const b = el('button', { type: 'button', class: 'dart', onclick: () => throwDart(`${modifier || 'S'}${n}`) });
+    b.dataset.num = n;
+    ui.numBtns.push(b);
+    pad.append(b);
+  }
+  return pad;
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs = {}) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+
+// Simple Round: the 20 numbers as segments of a ring, clockwise in real board order
+// with 20 at the top.
+function buildDonut() {
+  const OUTER = 99, INNER = 34, LABEL = 76; // labels sit out where the segments are widest
+  const point = (radius, deg) => { // deg clockwise from 12 o'clock
+    const t = (deg - 90) * Math.PI / 180;
+    return [+(radius * Math.cos(t)).toFixed(2), +(radius * Math.sin(t)).toFixed(2)];
+  };
+  const root = svgEl('svg', { viewBox: '-100 -100 200 200', class: 'donut', role: 'group', 'aria-label': 'Dartboard numbers' });
+  ui.segs = [];
+  BOARD_ORDER.forEach((n, i) => {
+    const a0 = (i - 0.5) * 18, a1 = (i + 0.5) * 18;
+    const d = `M ${point(OUTER, a0)} A ${OUTER} ${OUTER} 0 0 1 ${point(OUTER, a1)} ` +
+              `L ${point(INNER, a1)} A ${INNER} ${INNER} 0 0 0 ${point(INNER, a0)} Z`;
+    const [lx, ly] = point(LABEL, i * 18);
+    const path = svgEl('path', { d, class: 'seg' });
+    const label = svgEl('text', { x: lx, y: ly, class: 'seg-label', 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+    const seg = svgEl('g', { class: 'seg-wrap', role: 'button', tabindex: 0 });
+    const hit = () => throwDart(`${modifier || 'S'}${n}`);
+    seg.addEventListener('click', hit);
+    seg.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hit(); } });
+    seg.append(path, label);
+    root.append(seg);
+    ui.segs.push({ n, seg, path, label });
+  });
+  ui.donut = root;
+  return el('div', { class: 'donut-wrap' }, root);
+}
+
+// Simple layouts: the numbers show and score the selected modifier, in its board colour.
 function setModifier(m) {
   modifier = m;
-  if (!ui.numBtns) return;
-  for (const b of ui.numBtns) {
+  if (!ui.numBtns && !ui.segs) return;
+  for (const b of ui.numBtns || []) {
     const d = `${m || 'S'}${b.dataset.num}`;
     b.className = `dart ${dartColor(d)}`;
     b.textContent = getLabel(d);
     b.title = d;
   }
+  for (const s of ui.segs || []) {
+    const d = `${m || 'S'}${s.n}`;
+    s.path.setAttribute('class', `seg ${dartColor(d)}`);
+    s.label.textContent = getLabel(d);
+    s.seg.setAttribute('aria-label', d);
+  }
+  if (ui.segs) ui.donut.classList.toggle('modded', !!m);
   for (const [k, b] of Object.entries(ui.modBtns)) {
     b.classList.toggle('active', k === m);
     b.setAttribute('aria-pressed', k === m);
@@ -718,10 +769,10 @@ function buildOptions() {
   ui.optDoubleIn = el('input', { type: 'checkbox', onchange: e => { draft.doubleIn = e.target.checked; } });
   ui.optNames = el('div', { class: 'names' });
   // Layout is a display preference: it applies straight away and keeps the game going.
-  ui.optLayout = segmented([[true, 'Simple Layout'], [false, 'Full Layout']], simple => {
-    settings.simpleLayout = draft.simpleLayout = simple;
+  ui.optLayout = segmented(LAYOUTS, layout => {
+    settings.layout = draft.layout = layout;
     saveSettings();
-    syncSegmented(ui.optLayout, simple);
+    syncSegmented(ui.optLayout, layout);
     buildBoard();
     render();
   });
@@ -735,7 +786,7 @@ function buildOptions() {
       ui.optDoubleIn,
       el('span', { class: 'switch' })),
     field('Names', ui.optNames),
-    field('Board', ui.optLayout),
+    field('Layout', ui.optLayout),
     el('p', { class: 'sub', textContent: 'Starting a new game clears the current scores.' }),
     el('div', { class: 'overlay-actions' },
       button('Back', 'action', closeOptions),
@@ -745,7 +796,7 @@ function buildOptions() {
 function syncOptions() {
   syncSegmented(ui.optTarget, draft.target);
   syncSegmented(ui.optPlayers, draft.numPlayers);
-  syncSegmented(ui.optLayout, draft.simpleLayout);
+  syncSegmented(ui.optLayout, draft.layout);
   ui.optDoubleIn.checked = draft.doubleIn;
   ui.optNames.replaceChildren(...draft.names.slice(0, draft.numPlayers).map((name, i) =>
     el('input', {
@@ -788,7 +839,8 @@ function loadSettings() {
     if (TARGETS.includes(s.target)) settings.target = s.target;
     if (Number.isInteger(s.numPlayers) && s.numPlayers >= 1 && s.numPlayers <= MAX_PLAYERS) settings.numPlayers = s.numPlayers;
     settings.doubleIn = !!s.doubleIn;
-    if (typeof s.simpleLayout === 'boolean') settings.simpleLayout = s.simpleLayout;
+    if (LAYOUTS.some(([v]) => v === s.layout)) settings.layout = s.layout;
+    else if (typeof s.simpleLayout === 'boolean') settings.layout = s.simpleLayout ? 'simple' : 'full'; // older saves
     if (Array.isArray(s.names)) {
       s.names.slice(0, MAX_PLAYERS).forEach((n, i) => {
         if (typeof n === 'string' && n.trim()) settings.names[i] = n.trim().slice(0, 16);
@@ -834,6 +886,8 @@ function init() {
       e.returnValue = '';
     }
   });
+
+  document.addEventListener('touchstart', () => {}, { passive: true }); // lets iOS show :active press feedback
 
   render();
 }
