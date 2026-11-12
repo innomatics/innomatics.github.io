@@ -179,6 +179,47 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .nav:disabled { opacity: 0.35; cursor: default; }
 
+/* ===== Simple layout: number pad with Double / Triple modifiers ===== */
+#board.simple {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr 5fr 0.9fr; /* bull row, modifiers, 1-20, nav */
+  gap: 6px;
+}
+#board.simple .row { gap: 4px; }
+#board.simple .row.mods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#board.simple .dart { font-size: clamp(20px, 7vw, 36px); }
+#board.simple .miss { font-size: clamp(16px, 5vw, 26px); }
+
+.numpad {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.mod {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  font-size: clamp(16px, 5vw, 26px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #1d1d1d;
+  border: 1px solid #555;
+  border-radius: 4px;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.mod.active {
+  color: #111;
+  background: linear-gradient(to bottom, #f5c542, #b8860b);
+  border-color: #fff;
+  box-shadow: 0 0 14px rgba(245, 197, 66, 0.6);
+}
+
+
 /* ===== Throw score popup ===== */
 #throwScore {
   position: fixed;

@@ -16,9 +16,11 @@ const settings = {
   target: 301,
   numPlayers: 2,
   doubleIn: false,
+  simpleLayout: true,  // number pad with Double/Triple modifiers instead of D/S/T rows
   names: ['Player 1', 'Player 2', 'Player 3', 'Player 4']
 };
 let draft = null;  // copy of settings being edited on the options screen
+let modifier = null; // simple layout: 'D' or 'T' while a modifier is selected
 let darts = [];    // every dart entered, e.g. 'T20', 'S5', 'D25' (bull), 'T0' (miss)
 let cursor = 0;    // how many of those darts are applied (undo/redo moves this)
 const ui = {};
@@ -239,6 +241,7 @@ function render() {
   ui.scores.replaceChildren(...g.players.map((p, i) => playerCard(p, i, g)));
   ui.undoBtn.disabled = cursor === 0;
   ui.redoBtn.disabled = cursor >= darts.length;
+  setModifier(null); // any dart, undo, redo or new game clears a pending Double/Triple
   return g;
 }
 
@@ -600,7 +603,59 @@ function numberRow(n) {
     ...['D', 'S', 'T'].map(m => dartButton(`${m}${n}`, dartColor(`${m}${n}`))));
 }
 
+function navRow() {
+  ui.undoBtn = button('‹ Undo', 'nav', undo);
+  ui.redoBtn = button('Redo ›', 'nav', redo);
+  return el('div', { class: 'row' }, ui.undoBtn, button('Options', 'nav', openOptions), ui.redoBtn);
+}
+
 function buildBoard() {
+  ui.board.replaceChildren();
+  ui.numBtns = null;
+  ui.board.className = settings.simpleLayout ? 'simple' : 'classic';
+  if (settings.simpleLayout) buildSimpleBoard();
+  else buildClassicBoard();
+}
+
+// Simple layout: BULL / 25 / MISS, Double and Triple modifiers, then single numbers 1-20.
+function buildSimpleBoard() {
+  ui.modBtns = {
+    D: button('Double', 'mod', () => setModifier(modifier === 'D' ? null : 'D')),
+    T: button('Triple', 'mod', () => setModifier(modifier === 'T' ? null : 'T'))
+  };
+  ui.numBtns = [];
+  const pad = el('div', { class: 'numpad' });
+  for (let n = 1; n <= 20; n++) {
+    const b = el('button', { type: 'button', class: 'dart', onclick: () => throwDart(`${modifier || 'S'}${n}`) });
+    b.dataset.num = n;
+    ui.numBtns.push(b);
+    pad.append(b);
+  }
+  ui.board.append(
+    el('div', { class: 'row' }, dartButton('D25', 'red'), dartButton('S25', 'green'), dartButton('T0', 'miss')),
+    el('div', { class: 'row mods' }, ui.modBtns.D, ui.modBtns.T),
+    pad,
+    navRow());
+  setModifier(null);
+}
+
+// Simple layout: the number buttons show and score the selected modifier, in its board colour.
+function setModifier(m) {
+  modifier = m;
+  if (!ui.numBtns) return;
+  for (const b of ui.numBtns) {
+    const d = `${m || 'S'}${b.dataset.num}`;
+    b.className = `dart ${dartColor(d)}`;
+    b.textContent = getLabel(d);
+    b.title = d;
+  }
+  for (const [k, b] of Object.entries(ui.modBtns)) {
+    b.classList.toggle('active', k === m);
+    b.setAttribute('aria-pressed', k === m);
+  }
+}
+
+function buildClassicBoard() {
   const left = el('div', { class: 'col' });
   const right = el('div', { class: 'col' });
 
@@ -611,14 +666,7 @@ function buildBoard() {
   for (let n = 20; n >= 11; n--) left.append(numberRow(n));
   for (let n = 10; n >= 1; n--) right.append(numberRow(n));
 
-  ui.undoBtn = button('‹ Undo', 'nav', undo);
-  ui.redoBtn = button('Redo ›', 'nav', redo);
-  const optionsBtn = getOrCreate('optionsBtn', 'button');
-  optionsBtn.type = 'button';
-  optionsBtn.className = 'nav';
-  optionsBtn.textContent = 'Options';
-  optionsBtn.addEventListener('click', openOptions);
-  right.append(el('div', { class: 'row' }, ui.undoBtn, optionsBtn, ui.redoBtn));
+  right.append(navRow());
 
   ui.board.append(left, right);
 }
@@ -638,12 +686,22 @@ function buildWinner() {
       button('New game', 'action primary', newGame))));
 }
 
+// values: plain values (shown as-is) or [value, label] pairs
 function segmented(values, onPick) {
   const wrap = el('div', { class: 'segmented' });
-  for (const v of values) {
-    wrap.append(el('button', { type: 'button', textContent: String(v), dataset: { value: v }, onclick: () => onPick(v) }));
+  for (const item of values) {
+    const [v, label] = Array.isArray(item) ? item : [item, String(item)];
+    wrap.append(el('button', { type: 'button', textContent: label, dataset: { value: v }, onclick: () => onPick(v) }));
   }
   return wrap;
+}
+
+function syncSegmented(wrap, val) {
+  for (const b of wrap.children) {
+    const on = b.dataset.value === String(val);
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-pressed', on);
+  }
 }
 
 function field(label, control) {
@@ -659,6 +717,14 @@ function buildOptions() {
   ui.optPlayers = segmented([1, 2, 3, 4].slice(0, MAX_PLAYERS), v => { draft.numPlayers = v; syncOptions(); });
   ui.optDoubleIn = el('input', { type: 'checkbox', onchange: e => { draft.doubleIn = e.target.checked; } });
   ui.optNames = el('div', { class: 'names' });
+  // Layout is a display preference: it applies straight away and keeps the game going.
+  ui.optLayout = segmented([[true, 'Simple Layout'], [false, 'Full Layout']], simple => {
+    settings.simpleLayout = draft.simpleLayout = simple;
+    saveSettings();
+    syncSegmented(ui.optLayout, simple);
+    buildBoard();
+    render();
+  });
 
   ui.options.append(el('div', { class: 'overlay-box' },
     el('h1', { textContent: 'Options' }),
@@ -669,6 +735,7 @@ function buildOptions() {
       ui.optDoubleIn,
       el('span', { class: 'switch' })),
     field('Names', ui.optNames),
+    field('Board', ui.optLayout),
     el('p', { class: 'sub', textContent: 'Starting a new game clears the current scores.' }),
     el('div', { class: 'overlay-actions' },
       button('Back', 'action', closeOptions),
@@ -676,13 +743,9 @@ function buildOptions() {
 }
 
 function syncOptions() {
-  for (const [wrap, val] of [[ui.optTarget, draft.target], [ui.optPlayers, draft.numPlayers]]) {
-    for (const b of wrap.children) {
-      const on = +b.dataset.value === val;
-      b.classList.toggle('selected', on);
-      b.setAttribute('aria-pressed', on);
-    }
-  }
+  syncSegmented(ui.optTarget, draft.target);
+  syncSegmented(ui.optPlayers, draft.numPlayers);
+  syncSegmented(ui.optLayout, draft.simpleLayout);
   ui.optDoubleIn.checked = draft.doubleIn;
   ui.optNames.replaceChildren(...draft.names.slice(0, draft.numPlayers).map((name, i) =>
     el('input', {
@@ -725,6 +788,7 @@ function loadSettings() {
     if (TARGETS.includes(s.target)) settings.target = s.target;
     if (Number.isInteger(s.numPlayers) && s.numPlayers >= 1 && s.numPlayers <= MAX_PLAYERS) settings.numPlayers = s.numPlayers;
     settings.doubleIn = !!s.doubleIn;
+    if (typeof s.simpleLayout === 'boolean') settings.simpleLayout = s.simpleLayout;
     if (Array.isArray(s.names)) {
       s.names.slice(0, MAX_PLAYERS).forEach((n, i) => {
         if (typeof n === 'string' && n.trim()) settings.names[i] = n.trim().slice(0, 16);
